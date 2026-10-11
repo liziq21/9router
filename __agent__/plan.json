@@ -2,22 +2,22 @@
   "schema_version": 1,
   "items": [
     {
-      "title": "检查现有 Litestream 配置与变更",
+      "title": "检查当前工作区与忽略规则",
       "status": "done"
     },
     {
-      "title": "定位数据库未复制的根因",
+      "title": "添加 MCP 配置排除规则",
       "status": "done"
     },
     {
-      "title": "实施最小修复并补充测试",
+      "title": "提交并推送 CI 修复",
       "status": "done"
     },
     {
-      "title": "运行脚本与构建相关验证",
+      "title": "验证提交内容与工作区",
       "status": "done"
     }
   ],
-  "updated_at": "2026-10-10T07:02:07.294Z",
+  "updated_at": "2026-10-10T08:28:24.080Z",
   "session_id": "01a12460-3eb5-75b9-8a24-07654ef03c44"
 }
