@@ -46,11 +46,25 @@ Dependabot 会每天检查 Docker 基础镜像的版本和 digest，每周检查
 >
 > 启用复制时，入口脚本也会检查并固定这两个路径；如果平台覆盖成其它路径，容器会直接报错，而不会静默运行一个未备份的数据库。
 
+### 对象存储交易额度与保留策略
+
+`litestream.yml` 已将远端旧 LTX 文件的删除交给对象存储生命周期规则，并将 L0 保留检查从默认的 15 秒调整为 1 小时，以减少 `ListObjectsV2` 请求。请在 bucket 上为数据库副本前缀（例如 `db/`）配置生命周期规则；否则远端备份文件会持续累积。
+
+这项设置只能降低后续清理请求，不能绕过对象存储的交易额度。若日志出现以下错误：
+
+```text
+AccessDenied: Transaction cap exceeded
+```
+
+请先在对象存储控制台的 **Caps & Alerts / 交易额度** 页面提高额度、解除封顶或等待额度恢复，再重启 Koyeb 实例。若仍然返回 403，Litestream 不能完成同步和启动恢复；仅重复重启 Koyeb 或重新部署镜像不能解决该问题。
+
 ### Koyeb 部署注意事项
 
 Koyeb 的本地实例存储是临时的，实例重新调度或重建后不能依赖本地文件保留数据库。因此在 Koyeb 上必须使用 `REPLICA_URL` 和对象存储凭据，并且不要覆盖 `DATA_DIR` / `DB_PATH`。
 
 首次使用修复后的镜像时，如果日志显示 `no backup found, starting fresh`，请重新导入配置；导入后确认后续日志不再持续出现 `timeout waiting for db initialization`。之后实例重启应显示已从副本恢复（或不再显示 `no backup found`）。此前版本如果把数据库写到了未被 Litestream 监控的路径，旧配置不会出现在对象存储中，需要重新导入。
+
+日志中的 `provider=cline ... 403` 和 `provider=kimi: no OAuth refresher` 是应用内已保存连接的令牌刷新告警，与 Litestream 对象存储错误无关。恢复服务后，请在应用中重新授权 Cline，或删除/停用失效的 Kimi 连接。
 
 ---
 
