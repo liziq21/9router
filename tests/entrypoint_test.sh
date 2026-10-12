@@ -19,12 +19,19 @@ for ARG do
 done
 EOF
 
+cat > "$BIN_DIR/custom-app" <<'EOF'
+#!/bin/sh
+: > "$ARGS_FILE"
+EOF
+
 cat > "$BIN_DIR/litestream" <<'EOF'
 #!/bin/sh
 : > "$ARGS_FILE"
 if [ -n "${ENV_FILE:-}" ]; then
-    printf 'DATA_DIR=%s\n' "$DATA_DIR" > "$ENV_FILE"
-    printf 'DB_PATH=%s\n' "$DB_PATH" >> "$ENV_FILE"
+    printf 'DATA_DIR=%s\n' "${DATA_DIR:-}" > "$ENV_FILE"
+    printf 'DB_PATH=%s\n' "${DB_PATH:-}" >> "$ENV_FILE"
+    printf 'LITESTREAM_DB_PATH=%s\n' "${LITESTREAM_DB_PATH:-}" >> "$ENV_FILE"
+    printf 'LITESTREAM_REPLICA_URL=%s\n' "${LITESTREAM_REPLICA_URL:-}" >> "$ENV_FILE"
 fi
 INDEX=1
 for ARG do
@@ -33,7 +40,20 @@ for ARG do
 done
 EOF
 
-chmod +x "$BIN_DIR/9router-go" "$BIN_DIR/litestream"
+chmod +x "$BIN_DIR/9router-go" "$BIN_DIR/custom-app" "$BIN_DIR/litestream"
+
+cat > "$BIN_DIR/su-exec" <<'EOF'
+#!/bin/sh
+shift
+exec "$@"
+EOF
+chmod +x "$BIN_DIR/su-exec"
+
+cat > "$BIN_DIR/chown" <<'EOF'
+#!/bin/sh
+exit 0
+EOF
+chmod +x "$BIN_DIR/chown"
 
 assert_line() {
     EXPECTED=$1
@@ -48,21 +68,47 @@ assert_line() {
 
 # No-replication mode must preserve argument boundaries.
 APP_ARGS="$TMP_DIR/app.args"
-ARGS_FILE="$APP_ARGS" PATH="$BIN_DIR:$PATH" "$ENTRYPOINT" 9router-go "two words" "a'b"
+env -u REPLICA_URL -u LITESTREAM_REPLICA_URL \
+    ARGS_FILE="$APP_ARGS" PATH="$BIN_DIR:$PATH" \
+    "$ENTRYPOINT" 9router-go "two words" "a'b"
 assert_line '1=two words' "$APP_ARGS"
 assert_line "2=a'b" "$APP_ARGS"
 [ "$(wc -l < "$APP_ARGS")" -eq 2 ]
 
-# No arguments must still run the default application command.
-ARGS_FILE="$APP_ARGS" PATH="$BIN_DIR:$PATH" "$ENTRYPOINT"
+# No arguments must still run the profile's default application command.
+env -u REPLICA_URL -u LITESTREAM_REPLICA_URL \
+    ARGS_FILE="$APP_ARGS" PATH="$BIN_DIR:$PATH" "$ENTRYPOINT"
 [ ! -s "$APP_ARGS" ]
 
-# Litestream mode receives one shell command string that preserves all arguments.
+# Disabled mode must bypass Litestream even if a replica URL is present.
+ARGS_FILE="$APP_ARGS" LITESTREAM_MODE=disabled REPLICA_URL='s3://bucket/db' \
+    PATH="$BIN_DIR:$PATH" "$ENTRYPOINT" custom-app
+[ ! -s "$APP_ARGS" ]
+
+# Profile application and Litestream processes may use the same explicit user.
+env -u REPLICA_URL -u LITESTREAM_REPLICA_URL \
+    ARGS_FILE="$APP_ARGS" APP_USER=node DATA_DIR="$TMP_DIR/app-data" \
+    PATH="$BIN_DIR:$PATH" \
+    "$ENTRYPOINT" custom-app
+[ ! -s "$APP_ARGS" ]
+
+# Required mode must fail before the application starts without a replica URL.
+if env -u REPLICA_URL -u LITESTREAM_REPLICA_URL \
+    ARGS_FILE="$APP_ARGS" LITESTREAM_MODE=required PATH="$BIN_DIR:$PATH" \
+    "$ENTRYPOINT" custom-app >/dev/null 2>&1; then
+    echo 'Expected required mode without a replica URL to fail' >&2
+    exit 1
+fi
+
+# New variables take precedence over the legacy REPLICA_URL variable and all
+# arguments are passed to Litestream as one safely quoted shell command.
 LITESTREAM_ARGS="$TMP_DIR/litestream.args"
 LITESTREAM_ENV="$TMP_DIR/litestream.env"
 env -u DATA_DIR -u DB_PATH \
     ARGS_FILE="$LITESTREAM_ARGS" ENV_FILE="$LITESTREAM_ENV" \
-    REPLICA_URL='s3://bucket/db' PATH="$BIN_DIR:$PATH" \
+    LITESTREAM_DB_PATH="$TMP_DIR/db/data.sqlite" \
+    LITESTREAM_REPLICA_URL='s3://bucket/new-db' REPLICA_URL='s3://bucket/old-db' \
+    PATH="$BIN_DIR:$PATH" \
     "$ENTRYPOINT" 9router-go "two words" "a'b"
 assert_line '1=replicate' "$LITESTREAM_ARGS"
 assert_line '2=-config' "$LITESTREAM_ARGS"
@@ -71,13 +117,30 @@ assert_line '4=-exec' "$LITESTREAM_ARGS"
 EXPECTED_EXEC="'9router-go' 'two words' 'a'\\''b'"
 assert_line "5=$EXPECTED_EXEC" "$LITESTREAM_ARGS"
 [ "$(wc -l < "$LITESTREAM_ARGS")" -eq 5 ]
-assert_line 'DATA_DIR=/data' "$LITESTREAM_ENV"
-assert_line 'DB_PATH=/data/db/data.sqlite' "$LITESTREAM_ENV"
+assert_line 'DATA_DIR=' "$LITESTREAM_ENV"
+assert_line 'DB_PATH=' "$LITESTREAM_ENV"
+assert_line "LITESTREAM_DB_PATH=$TMP_DIR/db/data.sqlite" "$LITESTREAM_ENV"
+assert_line 'LITESTREAM_REPLICA_URL=s3://bucket/new-db' "$LITESTREAM_ENV"
 
-# Replication mode must reject a database path Litestream does not monitor.
-if DATA_DIR=/wrong DB_PATH=/data/db/data.sqlite REPLICA_URL='s3://bucket/db' \
-    PATH="$BIN_DIR:$PATH" "$ENTRYPOINT" 9router-go >/dev/null 2>&1; then
-    echo 'Expected mismatched database path to be rejected' >&2
+# The legacy variable remains supported when the new variable is absent.
+LEGACY_ARGS="$TMP_DIR/legacy.args"
+LEGACY_ENV="$TMP_DIR/legacy.env"
+env -u LITESTREAM_REPLICA_URL \
+    ARGS_FILE="$LEGACY_ARGS" ENV_FILE="$LEGACY_ENV" \
+    LITESTREAM_DB_PATH="$TMP_DIR/legacy/data.sqlite" \
+    REPLICA_URL='s3://bucket/legacy-db' PATH="$BIN_DIR:$PATH" \
+    "$ENTRYPOINT" custom-app
+assert_line 'LITESTREAM_REPLICA_URL=s3://bucket/legacy-db' "$LEGACY_ENV"
+
+# A profile path contract must reject an application path Litestream does not
+# monitor.
+if DATA_DIR=/wrong DB_PATH=/data/db/data.sqlite \
+    LITESTREAM_DB_PATH=/data/db/data.sqlite \
+    LITESTREAM_EXPECTED_DATA_DIR=/data \
+    LITESTREAM_EXPECTED_DB_PATH=/data/db/data.sqlite \
+    LITESTREAM_REPLICA_URL='s3://bucket/db' PATH="$BIN_DIR:$PATH" \
+    "$ENTRYPOINT" 9router-go >/dev/null 2>&1; then
+    echo 'Expected mismatched data path to be rejected' >&2
     exit 1
 fi
 

@@ -15,7 +15,10 @@ USER root
 
 # Keep 9router-go's database in the exact path monitored by Litestream.
 ENV DATA_DIR=/data \
-    DB_PATH=/data/db/data.sqlite
+    DB_PATH=/data/db/data.sqlite \
+    LITESTREAM_DB_PATH=/data/db/data.sqlite \
+    LITESTREAM_EXPECTED_DATA_DIR=/data \
+    LITESTREAM_EXPECTED_DB_PATH=/data/db/data.sqlite
 
 # 安装 ca-certificates（确保向 Cloudflare R2 进行 HTTPS 通信正常）
 RUN if command -v apk > /dev/null 2>&1; then \
@@ -42,3 +45,4 @@ EXPOSE 20130
 
 # 使用自定义脚本作为入口点，包装原有的 CMD 命令
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+CMD ["9router-go"]

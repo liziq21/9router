@@ -16,6 +16,9 @@ updates:
       router-base:
         patterns:
           - "luqmenul/9router-go"
+      router-node-base:
+        patterns:
+          - "decolua/9router"
 
   # 定期更新 GitHub Actions，避免工作流依赖长期过期。
   - package-ecosystem: github-actions

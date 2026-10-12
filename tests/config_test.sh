@@ -2,7 +2,9 @@
 set -eu
 
 ROOT_DIR=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
-DOCKERFILE="$ROOT_DIR/Dockerfile"
+GO_DOCKERFILE="$ROOT_DIR/Dockerfile"
+ROUTER_DOCKERFILE="$ROOT_DIR/Dockerfile.9router"
+ENTRYPOINT="$ROOT_DIR/entrypoint.sh"
 LITESTREAM_CONFIG="$ROOT_DIR/litestream.yml"
 
 assert_contains() {
@@ -14,10 +16,30 @@ assert_contains() {
     fi
 }
 
-# The application and Litestream must use the same SQLite database path.
-assert_contains "ENV DATA_DIR=/data \\" "$DOCKERFILE"
-assert_contains '    DB_PATH=/data/db/data.sqlite' "$DOCKERFILE"
-assert_contains '  - path: /data/db/data.sqlite' "$LITESTREAM_CONFIG"
+# Both profiles must use the same application and Litestream database path.
+assert_contains "    DB_PATH=/data/db/data.sqlite \\" "$GO_DOCKERFILE"
+assert_contains "    LITESTREAM_DB_PATH=/data/db/data.sqlite \\" "$GO_DOCKERFILE"
+assert_contains "    LITESTREAM_EXPECTED_DB_PATH=/data/db/data.sqlite" "$GO_DOCKERFILE"
+assert_contains "    DB_PATH=/data/db/data.sqlite \\" "$ROUTER_DOCKERFILE"
+assert_contains "    LITESTREAM_DB_PATH=/data/db/data.sqlite \\" "$ROUTER_DOCKERFILE"
+assert_contains "    LITESTREAM_EXPECTED_DB_PATH=/data/db/data.sqlite \\" "$ROUTER_DOCKERFILE"
+assert_contains "  - path: \${LITESTREAM_DB_PATH}" "$LITESTREAM_CONFIG"
+assert_contains "      url: \${LITESTREAM_REPLICA_URL}" "$LITESTREAM_CONFIG"
+
+# The shared entrypoint must expose the supported mode and URL compatibility.
+assert_contains "MODE=\${LITESTREAM_MODE:-auto}" "$ENTRYPOINT"
+assert_contains "REPLICA=\${LITESTREAM_REPLICA_URL:-\${REPLICA_URL:-}}" "$ENTRYPOINT"
+assert_contains '    auto|required|disabled)' "$ENTRYPOINT"
+
+# Profile ports, application images, and pinned digests are explicit.
+assert_contains 'EXPOSE 20130' "$GO_DOCKERFILE"
+assert_contains 'EXPOSE 20128' "$ROUTER_DOCKERFILE"
+assert_contains 'CMD ["9router-go"]' "$GO_DOCKERFILE"
+assert_contains 'CMD ["node", "custom-server.js"]' "$ROUTER_DOCKERFILE"
+assert_contains "    APP_USER=node \\" "$ROUTER_DOCKERFILE"
+assert_contains '    APP_GROUP=node' "$ROUTER_DOCKERFILE"
+assert_contains 'FROM luqmenul/9router-go:1.9.10@sha256:739fa24182fc1e1c5613c3ded92987a20428f5bddf5d1d765b31ab68886e9fcf' "$GO_DOCKERFILE"
+assert_contains 'FROM decolua/9router:0.5.95@sha256:4316fefb95ea642d57db885d906b1227b1768b15ac5def314621fd781da7b3f1' "$ROUTER_DOCKERFILE"
 
 # Remote retention is delegated to the object storage lifecycle policy, and
 # the L0 listing check is throttled to reduce requests against capped providers.

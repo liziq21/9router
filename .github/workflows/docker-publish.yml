@@ -10,8 +10,9 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  # 镜像名称会统一转为小写，格式为 ghcr.io/<owner>/<repo>
-  IMAGE_NAME: ${{ github.repository }}
+  # 镜像名称会统一转为小写。
+  IMAGE_NAME_GO: ${{ github.repository }}
+  IMAGE_NAME_ROUTER: ${{ github.repository_owner }}/9router-litestream
 
 jobs:
   validate:
@@ -25,7 +26,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Check shell syntax
-        run: sh -n entrypoint.sh tests/entrypoint_test.sh tests/config_test.sh
+        run: sh -n entrypoint.sh tests/entrypoint_test.sh tests/config_test.sh tests/container_smoke_test.sh
 
       - name: Run configuration consistency tests
         run: sh tests/config_test.sh
@@ -34,7 +35,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y shellcheck
 
       - name: Run ShellCheck
-        run: shellcheck entrypoint.sh tests/entrypoint_test.sh tests/config_test.sh
+        run: shellcheck entrypoint.sh tests/entrypoint_test.sh tests/config_test.sh tests/container_smoke_test.sh
 
       - name: Run entrypoint behavior tests
         run: docker run --rm -v "$GITHUB_WORKSPACE:/work:ro" alpine:3.20 sh /work/tests/entrypoint_test.sh
@@ -42,8 +43,17 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
 
-      - name: Build Docker image for validation
+      - name: Build 9router-go image for validation
         run: docker buildx build --platform linux/amd64 --file ./Dockerfile --tag 9router-go-litestream:ci --load .
+
+      - name: Build 9router image for validation
+        run: docker buildx build --platform linux/amd64 --file ./Dockerfile.9router --tag 9router-litestream:ci --load .
+
+      - name: Smoke test 9router-go container
+        run: sh tests/container_smoke_test.sh 9router-go-litestream:ci 20130
+
+      - name: Smoke test 9router container
+        run: sh tests/container_smoke_test.sh 9router-litestream:ci 20128
 
   build-and-push:
     needs: validate
@@ -73,27 +83,50 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # 提取元数据（用于生成标签与版本号）
-      - name: Extract Docker metadata
-        id: meta
+      # 提取两个 profile 的元数据（用于生成标签与版本号）
+      - name: Extract 9router-go metadata
+        id: meta-go
         uses: docker/metadata-action@v6
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_GO }}
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
             type=ref,event=branch
             type=semver,pattern={{version}}
             type=sha,format=short
 
-      # 构建并推送到 GHCR（同时支持 linux/amd64 与 linux/arm64）
-      - name: Build and push Docker image
+      - name: Extract 9router metadata
+        id: meta-router
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_ROUTER }}
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=sha,format=short
+
+      # 构建并推送两个 GHCR 镜像（同时支持 linux/amd64 与 linux/arm64）
+      - name: Build and push 9router-go image
         uses: docker/build-push-action@v7
         with:
           context: .
           file: ./Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          tags: ${{ steps.meta-go.outputs.tags }}
+          labels: ${{ steps.meta-go.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build and push 9router image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ./Dockerfile.9router
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta-router.outputs.tags }}
+          labels: ${{ steps.meta-router.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
