@@ -9,7 +9,7 @@ DATA_DIR=$(mktemp -d)
 REPLICA_DIR=$(mktemp -d)
 chmod 777 "$DATA_DIR" "$REPLICA_DIR"
 
-trap 'docker rm -f "$NAME" >/dev/null 2>&1 || true; rm -rf "$DATA_DIR" "$REPLICA_DIR"' EXIT HUP INT TERM
+trap 'docker rm -f "$NAME" >/dev/null 2>&1 || true; docker run --rm -v "$DATA_DIR:/data" alpine:3.20 sh -c "find /data -mindepth 1 -maxdepth 1 -exec rm -rf {} +" >/dev/null 2>&1 || true; docker run --rm -v "$REPLICA_DIR:/replica" alpine:3.20 sh -c "find /replica -mindepth 1 -maxdepth 1 -exec rm -rf {} +" >/dev/null 2>&1 || true; rm -rf "$DATA_DIR" "$REPLICA_DIR"' EXIT HUP INT TERM
 
 wait_for_health() {
     ATTEMPTS=0
@@ -54,7 +54,10 @@ docker stop --time 30 "$NAME" >/dev/null
 docker rm "$NAME" >/dev/null
 
 # Remove only the local database. The replica remains available for restore.
-rm -rf "$DATA_DIR/db"
+docker run --rm \
+    -v "$DATA_DIR:/data" \
+    alpine:3.20 \
+    sh -c 'rm -rf /data/db'
 
 docker run -d \
     --name "$NAME" \
