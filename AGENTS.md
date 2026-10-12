@@ -7,7 +7,7 @@
 - `9router-go`，默认端口 `20130`；
 - 原版 `9router`，默认端口 `20128`。
 
-两个 profile 共用 POSIX `/bin/sh` 入口和 Litestream 配置，统一监控 `/data/db/data.sqlite`，并通过环境变量适配 S3 兼容对象存储。项目没有应用源代码或包管理器配置。
+两个 9Router profile 共用 POSIX `/bin/sh` 入口和 Litestream 配置，统一监控 `/data/db/data.sqlite`，并通过环境变量适配 S3 兼容对象存储。仓库没有生产应用源代码或包管理器配置；`examples/generic-sqlite/` 仅是用于契约验证的最小示例。
 
 长期定位、架构和演进计划分别见 `docs/PROJECT.md`、`docs/ARCHITECTURE.md` 和 `docs/ROADMAP.md`。
 
