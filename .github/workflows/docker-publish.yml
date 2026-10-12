@@ -97,7 +97,7 @@ jobs:
 
       - name: Extract 9router metadata
         id: meta-router
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_ROUTER }}
           tags: |
