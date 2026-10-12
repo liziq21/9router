@@ -1,0 +1,18 @@
+services:
+  generic-sqlite:
+    build:
+      context: ../..
+      dockerfile: Dockerfile.generic
+    ports:
+      - "8080:8080"
+    volumes:
+      - generic-sqlite-data:/var/lib/generic-sqlite
+      - generic-sqlite-replica:/replica
+    environment:
+      LITESTREAM_MODE: required
+      LITESTREAM_DB_PATH: /var/lib/generic-sqlite/data.sqlite
+      LITESTREAM_REPLICA_URL: file:///replica/backup
+
+volumes:
+  generic-sqlite-data:
+  generic-sqlite-replica:

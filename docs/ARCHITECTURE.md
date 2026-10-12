@@ -5,6 +5,7 @@
 ```text
 Dockerfile                 # 9router-go + Litestream profile
 Dockerfile.9router         # 原版 9router + Litestream profile
+Dockerfile.generic         # generic SQLite 示例 profile
 entrypoint.sh              # 两个 profile 共用的 POSIX 入口
 litestream.yml             # 单 SQLite 数据库的 Litestream 配置
 README.md                  # 用户文档和快速开始
@@ -16,7 +17,8 @@ tests/
 ├── entrypoint_test.sh     # 入口行为测试
 ├── config_test.sh          # Dockerfile/配置一致性测试
 ├── container_smoke_test.sh  # 已构建镜像的健康端点冒烟测试
-└── container_replication_test.sh # file replica 恢复/停机同步测试
+├── container_replication_test.sh # 9Router file replica 恢复/停机同步测试
+└── generic_container_test.sh # generic 示例的路径契约和恢复测试
 ```
 
 ## 构建层次
@@ -34,6 +36,33 @@ tests/
 | --- | --- | ---: | --- | --- |
 | `Dockerfile` | `luqmenul/9router-go:1.9.10` | `20130` | `9router-go` | 基础镜像默认用户（当前构建阶段为 root） |
 | `Dockerfile.9router` | `decolua/9router:0.5.95` | `20128` | `node custom-server.js` | `node` |
+| `Dockerfile.generic` | 固定 digest 的 `python:3.12-alpine` | `8080` | `python /opt/generic-sqlite/app.py` | `sqlite` |
+
+`Dockerfile.generic` 是仓库内可构建、可验证的 generic 示例，不是已经独立发布的黑盒镜像。它选择“仓库内 generic 示例镜像”方案，而不是 base image、runtime layer 或 sidecar：这样能在一个最小变更中验证入口的通用契约、SQLite 生命周期和权限模型；应用命令、端口、用户、数据目录仍由示例 Dockerfile 明确声明。稳定后再单独发布 wrapper 镜像，避免把未定义应用契约的镜像误当成通用产品。
+
+### Generic 应用契约
+
+generic wrapper 要求应用 profile 在构建期或运行时明确提供以下信息：
+
+- 应用启动命令必须作为 Docker `CMD` positional arguments 传给入口；
+- 启用复制时必须显式设置 `LITESTREAM_DB_PATH`；入口不会根据 `/data`、`DATA_DIR`、文件名或目录扫描猜测 SQLite 文件；
+- 应用数据目录、SQLite 路径、`APP_USER`、`APP_GROUP` 和端口必须属于 profile 契约；
+- `APP_COMMAND` 未解析的命令字符串不属于主要接口；
+- generic wrapper 不负责应用专属 schema migration；
+- 应用基础镜像、命令、用户和端口在 Dockerfile 中固定，运行时变量只配置复制和应用本身支持的选项。
+
+示例 profile 的复制配置为：
+
+```text
+DATA_DIR=/var/lib/generic-sqlite
+DB_PATH=/var/lib/generic-sqlite/data.sqlite
+LITESTREAM_DB_PATH=/var/lib/generic-sqlite/data.sqlite
+APP_USER=sqlite
+APP_GROUP=sqlite
+CMD ["python", "/opt/generic-sqlite/app.py"]
+```
+
+generic Dockerfile 不设置 `LITESTREAM_DB_PATH` 默认值，确保复制开启时缺少路径会立即失败。`LITESTREAM_MODE=disabled` 或 `auto` 且没有 replica 时仍可以直接运行应用。
 
 ## 入口流程
 
@@ -62,10 +91,11 @@ Litestream 负责应用子进程生命周期和优雅停机同步。启用 `APP_
 LITESTREAM_MODE=${LITESTREAM_MODE:-auto}
 LITESTREAM_REPLICA_URL > REPLICA_URL
 LITESTREAM_CONFIG=${LITESTREAM_CONFIG:-/etc/litestream.yml}
-LITESTREAM_DB_PATH > DB_PATH > DATA_DIR/db/data.sqlite
+generic replication: LITESTREAM_DB_PATH 必须显式设置
+9Router profiles: LITESTREAM_DB_PATH > DB_PATH > DATA_DIR/db/data.sqlite
 ```
 
-入口会把最终值导出为 `LITESTREAM_REPLICA_URL` 和 `LITESTREAM_DB_PATH`，供 Litestream 配置文件展开。
+入口会把最终值导出为 `LITESTREAM_REPLICA_URL` 和 `LITESTREAM_DB_PATH`，供 Litestream 配置文件展开。`DB_PATH` 和 `DATA_DIR/db/data.sqlite` 仅保留给已有 9Router profile 的应用路径兼容，不能作为 generic 复制路径的隐式回退。
 
 ### 三种模式
 
@@ -108,7 +138,7 @@ LITESTREAM_EXPECTED_DB_PATH=/data/db/data.sqlite
 
 Litestream 的 `-exec` 接收一个 shell command string，而 Docker 入口收到的是参数数组。`shell_quote` 对每个参数进行 POSIX 单引号转义，再拼成一个字符串，避免参数中的空格和单引号被重新拆分。
 
-不建议使用 `APP_COMMAND` 传入未解析的命令字符串。应用镜像应继续使用 Docker `CMD` 传递默认命令，profile 只在测试或无 CMD 的场景使用 `APP_DEFAULT_COMMAND`。
+不建议使用 `APP_COMMAND` 传入未解析的命令字符串。应用镜像应继续使用 Docker `CMD` 传递默认命令；没有 positional arguments 时，只有显式设置的单参数 `APP_DEFAULT_COMMAND` 兼容场景才会生效，否则入口直接失败。这避免 generic wrapper 静默选择应用命令。
 
 ## 部署模型
 

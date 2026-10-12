@@ -28,17 +28,19 @@ docker buildx build --platform linux/amd64 --file ./Dockerfile --tag 9router-go-
 docker buildx build --platform linux/amd64 --file ./Dockerfile.9router --tag 9router-litestream:ci --load .
 ```
 
-## Phase 2：通用 SQLite wrapper
+## Phase 2：通用 SQLite wrapper（契约与示例已完成）
 
 在两个 profile 运行稳定后，抽取可独立发布的 generic wrapper/base image。
 
-- [ ] 定义 generic 应用契约：数据库路径、启动用户、启动命令和数据目录；
-- [ ] 允许 generic 应用显式设置 `LITESTREAM_DB_PATH`；
-- [ ] 增加自定义用户的可靠权限初始化流程；
-- [ ] 增加一个最小 SQLite 示例应用；
-- [ ] 增加 generic Dockerfile 和 Compose 示例；
+- [x] 定义 generic 应用契约：数据库路径、启动用户、启动命令和数据目录；
+- [x] 允许 generic 应用显式设置 `LITESTREAM_DB_PATH`，缺少时拒绝启用复制；
+- [x] 增加自定义用户的可靠权限初始化流程；
+- [x] 增加一个最小 SQLite 示例应用；
+- [x] 增加 generic Dockerfile 和 Compose 示例；
 - [ ] 单独发布 `litestream-wrapper` 镜像并独立版本化；
-- [ ] 明确 generic 镜像不负责应用数据库迁移。
+- [x] 明确 generic 镜像不负责应用数据库迁移。
+
+Phase 2 当前采用仓库内 generic 示例镜像方案，先验证契约、入口和恢复生命周期；独立发布 generic wrapper 镜像仍需进一步稳定性、版本化和发布策略评估。
 
 ## Phase 3：部署和生态扩展
 

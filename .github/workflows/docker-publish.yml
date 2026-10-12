@@ -26,7 +26,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Check shell syntax
-        run: sh -n entrypoint.sh tests/entrypoint_test.sh tests/config_test.sh tests/container_smoke_test.sh
+        run: sh -n entrypoint.sh tests/entrypoint_test.sh tests/config_test.sh tests/container_smoke_test.sh tests/container_replication_test.sh tests/generic_container_test.sh
 
       - name: Run configuration consistency tests
         run: sh tests/config_test.sh
@@ -35,7 +35,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y shellcheck
 
       - name: Run ShellCheck
-        run: shellcheck entrypoint.sh tests/entrypoint_test.sh tests/config_test.sh tests/container_smoke_test.sh
+        run: shellcheck entrypoint.sh tests/entrypoint_test.sh tests/config_test.sh tests/container_smoke_test.sh tests/container_replication_test.sh tests/generic_container_test.sh
 
       - name: Run entrypoint behavior tests
         run: docker run --rm -v "$GITHUB_WORKSPACE:/work:ro" alpine:3.20 sh /work/tests/entrypoint_test.sh
@@ -49,6 +49,9 @@ jobs:
       - name: Build 9router image for validation
         run: docker buildx build --platform linux/amd64 --file ./Dockerfile.9router --tag 9router-litestream:ci --load .
 
+      - name: Build generic SQLite image for validation
+        run: docker buildx build --platform linux/amd64 --file ./Dockerfile.generic --tag generic-sqlite-litestream:ci --load .
+
       - name: Smoke test 9router-go container
         run: sh tests/container_smoke_test.sh 9router-go-litestream:ci 20130
 
@@ -60,6 +63,9 @@ jobs:
 
       - name: Test 9router replication and restore
         run: sh tests/container_replication_test.sh 9router-litestream:ci 20128 /api/health
+
+      - name: Test generic SQLite wrapper
+        run: sh tests/generic_container_test.sh generic-sqlite-litestream:ci 8080
 
   build-and-push:
     needs: validate

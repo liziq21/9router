@@ -75,10 +75,21 @@ assert_line '1=two words' "$APP_ARGS"
 assert_line "2=a'b" "$APP_ARGS"
 [ "$(wc -l < "$APP_ARGS")" -eq 2 ]
 
-# No arguments must still run the profile's default application command.
+# An explicit compatibility default may be used without making the generic
+# wrapper depend on a fixed application command.
 env -u REPLICA_URL -u LITESTREAM_REPLICA_URL \
-    ARGS_FILE="$APP_ARGS" PATH="$BIN_DIR:$PATH" "$ENTRYPOINT"
+    APP_DEFAULT_COMMAND=9router-go ARGS_FILE="$APP_ARGS" PATH="$BIN_DIR:$PATH" \
+    "$ENTRYPOINT"
 [ ! -s "$APP_ARGS" ]
+
+# Without Docker CMD positional arguments or an explicit test default, the
+# wrapper must fail instead of silently choosing an application.
+if env -u REPLICA_URL -u LITESTREAM_REPLICA_URL \
+    -u APP_DEFAULT_COMMAND ARGS_FILE="$APP_ARGS" PATH="$BIN_DIR:$PATH" \
+    "$ENTRYPOINT" >/dev/null 2>&1; then
+    echo 'Expected missing application command to fail' >&2
+    exit 1
+fi
 
 # Disabled mode must bypass Litestream even if a replica URL is present.
 ARGS_FILE="$APP_ARGS" LITESTREAM_MODE=disabled REPLICA_URL='s3://bucket/db' \
@@ -97,6 +108,16 @@ if env -u REPLICA_URL -u LITESTREAM_REPLICA_URL \
     ARGS_FILE="$APP_ARGS" LITESTREAM_MODE=required PATH="$BIN_DIR:$PATH" \
     "$ENTRYPOINT" custom-app >/dev/null 2>&1; then
     echo 'Expected required mode without a replica URL to fail' >&2
+    exit 1
+fi
+
+# Generic replication must not guess a database path from DATA_DIR or DB_PATH.
+if env -u LITESTREAM_DB_PATH \
+    ARGS_FILE="$APP_ARGS" LITESTREAM_REPLICA_URL='s3://bucket/db' \
+    DATA_DIR="$TMP_DIR/generic-data" DB_PATH="$TMP_DIR/generic-data/data.sqlite" \
+    PATH="$BIN_DIR:$PATH" \
+    "$ENTRYPOINT" custom-app >/dev/null 2>&1; then
+    echo 'Expected generic replication without LITESTREAM_DB_PATH to fail' >&2
     exit 1
 fi
 

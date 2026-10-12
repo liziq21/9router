@@ -4,6 +4,7 @@ set -eu
 ROOT_DIR=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
 GO_DOCKERFILE="$ROOT_DIR/Dockerfile"
 ROUTER_DOCKERFILE="$ROOT_DIR/Dockerfile.9router"
+GENERIC_DOCKERFILE="$ROOT_DIR/Dockerfile.generic"
 ENTRYPOINT="$ROOT_DIR/entrypoint.sh"
 LITESTREAM_CONFIG="$ROOT_DIR/litestream.yml"
 
@@ -19,7 +20,7 @@ assert_contains() {
 # Both profiles must use the same application and Litestream database path.
 assert_contains "    DB_PATH=/data/db/data.sqlite \\" "$GO_DOCKERFILE"
 assert_contains "    LITESTREAM_DB_PATH=/data/db/data.sqlite \\" "$GO_DOCKERFILE"
-assert_contains "    LITESTREAM_EXPECTED_DB_PATH=/data/db/data.sqlite" "$GO_DOCKERFILE"
+assert_contains "    LITESTREAM_EXPECTED_DB_PATH=/data/db/data.sqlite \\" "$GO_DOCKERFILE"
 assert_contains "    DB_PATH=/data/db/data.sqlite \\" "$ROUTER_DOCKERFILE"
 assert_contains "    LITESTREAM_DB_PATH=/data/db/data.sqlite \\" "$ROUTER_DOCKERFILE"
 assert_contains "    LITESTREAM_EXPECTED_DB_PATH=/data/db/data.sqlite \\" "$ROUTER_DOCKERFILE"
@@ -40,6 +41,18 @@ assert_contains "    APP_USER=node \\" "$ROUTER_DOCKERFILE"
 assert_contains '    APP_GROUP=node' "$ROUTER_DOCKERFILE"
 assert_contains 'FROM luqmenul/9router-go:1.9.10@sha256:739fa24182fc1e1c5613c3ded92987a20428f5bddf5d1d765b31ab68886e9fcf' "$GO_DOCKERFILE"
 assert_contains 'FROM decolua/9router:0.5.95@sha256:4316fefb95ea642d57db885d906b1227b1768b15ac5def314621fd781da7b3f1' "$ROUTER_DOCKERFILE"
+
+# The generic example has an explicit app contract but requires the operator to
+# provide LITESTREAM_DB_PATH when replication is enabled.
+assert_contains 'FROM python:3.12-alpine@sha256:1b668429b3511ab407d8e00648891631b0b1a4d7e15e3ca70f38ab5b91ad4ab4' "$GENERIC_DOCKERFILE"
+assert_contains "    DATA_DIR=/var/lib/generic-sqlite \\" "$GENERIC_DOCKERFILE"
+assert_contains "    APP_USER=sqlite \\" "$GENERIC_DOCKERFILE"
+assert_contains 'EXPOSE 8080' "$GENERIC_DOCKERFILE"
+assert_contains 'CMD ["python", "/opt/generic-sqlite/app.py"]' "$GENERIC_DOCKERFILE"
+if grep -Fq 'LITESTREAM_DB_PATH=' "$GENERIC_DOCKERFILE"; then
+    echo "Generic Dockerfile must not provide a silent database path" >&2
+    exit 1
+fi
 
 # Remote retention is delegated to the object storage lifecycle policy, and
 # the L0 listing check is throttled to reduce requests against capped providers.

@@ -6,6 +6,7 @@
 | --- | --- | ---: | --- |
 | `Dockerfile` | `9router-go` | `20130` | `/data/db/data.sqlite` |
 | `Dockerfile.9router` | 原版 `9router` | `20128` | `/data/db/data.sqlite` |
+| `Dockerfile.generic` | generic SQLite 示例 | `8080` | 由 `LITESTREAM_DB_PATH` 显式提供 |
 
 两个 profile 使用相同的 POSIX 入口和 Litestream 配置，把 SQLite WAL 实时复制到 S3 兼容对象存储，并在本地数据库不存在时尝试恢复。
 
@@ -15,6 +16,7 @@
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)：入口流程、变量优先级和数据路径；
 - [`docs/ROADMAP.md`](docs/ROADMAP.md)：阶段目标与验收标准；
 - [`docs/PHASE2_PROMPT.md`](docs/PHASE2_PROMPT.md)：下一阶段 generic wrapper 会话的可复制提示词。
+- [`examples/generic-sqlite/compose.yml`](examples/generic-sqlite/compose.yml)：generic SQLite 示例的本地 Compose 配置。
 
 ## 为什么支持两个 9Router
 
@@ -54,7 +56,7 @@ docker build -f Dockerfile.9router -t 9router-litestream:local .
 | `LITESTREAM_MODE` | `auto` | `auto`、`required` 或 `disabled`。 |
 | `LITESTREAM_REPLICA_URL` | 未设置 | 副本地址，优先于旧变量 `REPLICA_URL`。 |
 | `REPLICA_URL` | 未设置 | 旧版兼容变量，例如 `s3://<BUCKET_NAME>/db?endpoint=https://<ENDPOINT_HOST>`。 |
-| `LITESTREAM_DB_PATH` | 应用 `DB_PATH` | Litestream 监控的 SQLite 文件；两个 profile 固定为 `/data/db/data.sqlite`。 |
+| `LITESTREAM_DB_PATH` | 9Router profile 在构建期设置；generic 无默认值 | Litestream 监控的 SQLite 文件。generic profile 启用复制时必须显式提供。 |
 | `LITESTREAM_CONFIG` | `/etc/litestream.yml` | 自定义 Litestream 配置路径。 |
 | `LITESTREAM_ACCESS_KEY_ID` | 未设置 | S3 access key。 |
 | `LITESTREAM_SECRET_ACCESS_KEY` | 未设置 | S3 secret key。 |
@@ -68,6 +70,8 @@ docker build -f Dockerfile.9router -t 9router-litestream:local .
 - `disabled`：忽略副本地址，直接运行应用，适合调试或临时恢复。
 
 两个 9Router profile 在启用复制时会校验 `DATA_DIR`、`DB_PATH` 和 `LITESTREAM_DB_PATH`。不要把它们覆盖到其它路径，否则容器会直接失败，避免产生未备份的数据库。
+
+generic wrapper 不会根据 `DATA_DIR`、文件名或目录扫描猜测 SQLite 文件。启用复制时必须显式设置 `LITESTREAM_DB_PATH`；应用启动命令通过 Dockerfile 的 `CMD` positional arguments 提供，`APP_COMMAND` 未解析字符串不是主要接口。generic wrapper 也不负责应用专属 schema migration。
 
 ### 应用
 
@@ -131,6 +135,33 @@ volumes:
 
 请将真实凭据放在 Compose secrets、平台 Secret 或 `.env` 管理系统中，不要提交到仓库。
 
+## Generic SQLite 示例
+
+仓库提供一个最小 Python/SQLite 应用，用来验证 generic wrapper 的数据库路径、用户权限、参数传递和恢复生命周期。它不是独立发布的通用黑盒镜像；应用命令、端口、用户和数据目录都在 `Dockerfile.generic` 中明确声明。
+
+构建并启动示例：
+
+```sh
+docker buildx build --platform linux/amd64 --file ./Dockerfile.generic --tag generic-sqlite-litestream:local --load .
+docker run --rm \
+  -p 8080:8080 \
+  -v generic-sqlite-data:/var/lib/generic-sqlite \
+  -v generic-sqlite-replica:/replica \
+  -e LITESTREAM_MODE=required \
+  -e LITESTREAM_DB_PATH=/var/lib/generic-sqlite/data.sqlite \
+  -e LITESTREAM_REPLICA_URL=file:///replica/backup \
+  generic-sqlite-litestream:local
+```
+
+也可以运行 `examples/generic-sqlite/compose.yml`。`/health` 检查应用状态，`/touch` 会更新 SQLite 中的计数器：
+
+```sh
+curl http://127.0.0.1:8080/health
+curl http://127.0.0.1:8080/touch
+```
+
+generic 示例刻意不在 Dockerfile 中设置 `LITESTREAM_DB_PATH`。如果设置 replica 但没有显式路径，入口会失败而不会静默备份错误文件。
+
 ## 恢复机制
 
 `litestream.yml` 启用了 `restore-if-db-not-exists: true`：
@@ -170,6 +201,8 @@ sh tests/container_smoke_test.sh 9router-go-litestream:ci 20130
 sh tests/container_smoke_test.sh 9router-litestream:ci 20128 /api/health
 sh tests/container_replication_test.sh 9router-go-litestream:ci 20130 /health
 sh tests/container_replication_test.sh 9router-litestream:ci 20128 /api/health
+docker buildx build --platform linux/amd64 --file ./Dockerfile.generic --tag generic-sqlite-litestream:ci --load .
+sh tests/generic_container_test.sh generic-sqlite-litestream:ci 8080
 ```
 
-完整的 CI 还会执行 Alpine 容器中的入口测试、两个构建镜像的健康端点冒烟测试（Go profile 使用 `/health`，原版 profile 使用 `/api/health`）、file replica 恢复测试和 amd64/arm64 构建发布。真实 S3 兼容对象存储的验收仍需在目标存储上单独执行。
+完整的 CI 还会执行 Alpine 容器中的入口测试、两个构建镜像的健康端点冒烟测试（Go profile 使用 `/health`，原版 profile 使用 `/api/health`）、两个 9Router profile 的 file replica 恢复测试、generic 示例的路径拒绝和恢复测试，以及 amd64/arm64 构建发布。真实 S3 兼容对象存储的验收仍需在目标存储上单独执行。

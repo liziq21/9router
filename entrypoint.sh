@@ -59,10 +59,16 @@ prepare_app_data() {
     fi
 }
 
-# 如果没有传入参数，则默认执行原镜像的主程序 9router-go。
-# 保留 positional parameters，避免参数中的空格或特殊字符被破坏。
+# Docker CMD 以 positional arguments 提供应用命令。只有显式设置的单参数
+# APP_DEFAULT_COMMAND 才可用于没有 CMD 的测试/兼容场景；generic profile 不
+# 设置它，也不会依赖某个固定应用命令。
 if [ "$#" -eq 0 ]; then
-    set -- "${APP_DEFAULT_COMMAND:-9router-go}"
+    if [ -n "${APP_DEFAULT_COMMAND:-}" ]; then
+        set -- "$APP_DEFAULT_COMMAND"
+    else
+        echo "[Error] no application command was provided by Docker CMD." >&2
+        exit 1
+    fi
 fi
 
 if [ "$MODE" = "required" ] && [ -z "$REPLICA" ]; then
@@ -80,6 +86,11 @@ if [ -z "$REPLICA" ]; then
     echo "[Warning] Replica URL is not set. Running without Litestream replication."
     prepare_app_data
     exec_as_app "$@"
+fi
+
+if [ -z "${LITESTREAM_DB_PATH:-}" ]; then
+    echo "[Error] LITESTREAM_DB_PATH must be explicitly set when replication is enabled." >&2
+    exit 1
 fi
 
 # Profile images can pin the application and Litestream to one known path. This
