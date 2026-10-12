@@ -32,7 +32,8 @@
 - CI 已成功发布两个 linux/amd64 和 linux/arm64 GHCR 镜像；
 - 最新通过的 CI 运行记录见仓库 GitHub Actions；
 - Dependabot 的 metadata-action v6 PR 已被主分支直接包含并自动关闭；
-- 当前尚未完成真实 S3 兼容对象存储的恢复/停机同步测试；不要把这项说成已经通过。
+- CI 已使用隔离的 Litestream file replica 验证两个 profile 的停机同步、删除本地数据库后的恢复和 marker 持久化；
+- 当前尚未使用真实 S3 兼容对象存储完成恢复/停机同步测试；不要把这项说成已经通过。
 
 当前主分支已经有成功 CI，不要回退已有双 profile 改造。
 

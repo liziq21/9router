@@ -1,6 +1,6 @@
 # 演进路线
 
-## Phase 1：双应用 profile（当前阶段）
+## Phase 1：双应用 profile（已完成 CI 验收）
 
 目标是扩展现有 `9router-go-litestream`，同时提供原版 `9router` 的兼容镜像。
 

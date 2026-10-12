@@ -172,4 +172,4 @@ sh tests/container_replication_test.sh 9router-go-litestream:ci 20130 /health
 sh tests/container_replication_test.sh 9router-litestream:ci 20128 /api/health
 ```
 
-完整的 CI 还会执行 Alpine 容器中的入口测试、两个构建镜像的健康端点冒烟测试（Go profile 使用 `/health`，原版 profile 使用 `/api/health`）和 amd64/arm64 构建。
+完整的 CI 还会执行 Alpine 容器中的入口测试、两个构建镜像的健康端点冒烟测试（Go profile 使用 `/health`，原版 profile 使用 `/api/health`）、file replica 恢复测试和 amd64/arm64 构建发布。真实 S3 兼容对象存储的验收仍需在目标存储上单独执行。
