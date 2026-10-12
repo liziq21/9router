@@ -8,8 +8,10 @@ NAME="litestream-replication-${PORT}-$$"
 DATA_DIR=$(mktemp -d)
 REPLICA_DIR=$(mktemp -d)
 chmod 777 "$DATA_DIR" "$REPLICA_DIR"
+HOST_UID=$(id -u)
+HOST_GID=$(id -g)
 
-trap 'docker rm -f "$NAME" >/dev/null 2>&1 || true; docker run --rm -v "$DATA_DIR:/data" alpine:3.20 sh -c "find /data -mindepth 1 -maxdepth 1 -exec rm -rf {} +" >/dev/null 2>&1 || true; docker run --rm -v "$REPLICA_DIR:/replica" alpine:3.20 sh -c "find /replica -mindepth 1 -maxdepth 1 -exec rm -rf {} +" >/dev/null 2>&1 || true; rm -rf "$DATA_DIR" "$REPLICA_DIR"' EXIT HUP INT TERM
+trap 'docker rm -f "$NAME" >/dev/null 2>&1 || true; docker run --rm -v "$DATA_DIR:/data" alpine:3.20 sh -c "find /data -mindepth 1 -maxdepth 1 -exec rm -rf {} +; chown $HOST_UID:$HOST_GID /data" >/dev/null 2>&1 || true; docker run --rm -v "$REPLICA_DIR:/replica" alpine:3.20 sh -c "find /replica -mindepth 1 -maxdepth 1 -exec rm -rf {} +; chown $HOST_UID:$HOST_GID /replica" >/dev/null 2>&1 || true; rm -rf "$DATA_DIR" "$REPLICA_DIR"' EXIT HUP INT TERM
 
 wait_for_health() {
     ATTEMPTS=0
@@ -46,10 +48,25 @@ docker run -d \
 
 wait_for_health
 
-# Both 9Router implementations create the shared kv table during startup. Add
-# a marker through a separate SQLite client, then let Litestream sync it during
-# the container's graceful shutdown.
-sqlite_exec "INSERT OR REPLACE INTO kv(scope, key, value) VALUES ('litestream-test', 'marker', 'phase1');"
+# Stop before writing the marker so an application-specific migration or an
+# in-memory SQLite adapter cannot overwrite the marker during shutdown.
+docker stop --time 30 "$NAME" >/dev/null
+docker rm "$NAME" >/dev/null
+
+sqlite_exec "CREATE TABLE IF NOT EXISTS litestream_test_marker (id TEXT PRIMARY KEY, value TEXT NOT NULL); INSERT OR REPLACE INTO litestream_test_marker(id, value) VALUES ('marker', 'phase1');"
+
+# Start once more with the marker present, then stop gracefully so the marker
+# is included in the replica before the local database is removed.
+docker run -d \
+    --name "$NAME" \
+    -p "127.0.0.1:${PORT}:${PORT}" \
+    -v "$DATA_DIR:/data" \
+    -v "$REPLICA_DIR:/replica" \
+    -e LITESTREAM_MODE=required \
+    -e LITESTREAM_REPLICA_URL=file:///replica/backup \
+    "$IMAGE" >/dev/null
+
+wait_for_health
 docker stop --time 30 "$NAME" >/dev/null
 docker rm "$NAME" >/dev/null
 
@@ -70,7 +87,7 @@ docker run -d \
 
 wait_for_health
 
-MARKER=$(sqlite_exec "SELECT value FROM kv WHERE scope = 'litestream-test' AND key = 'marker';")
+MARKER=$(sqlite_exec "SELECT value FROM litestream_test_marker WHERE id = 'marker';")
 if [ "$MARKER" != "phase1" ]; then
     echo "Restored marker mismatch: expected phase1, got '$MARKER'" >&2
     docker logs "$NAME" >&2 || true
