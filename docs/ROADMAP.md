@@ -14,15 +14,16 @@
 - [x] 在 CI 中配置两个构建镜像的健康端点冒烟测试；
 - [x] 通过 CI 实际完成两个 amd64 镜像构建和冒烟测试；
 - [x] 在 CI 中发布两个多架构镜像；
-- [ ] 用真实测试卷验证两个 profile 的恢复和停机同步。
+- [x] 用隔离的 Litestream file replica 验证两个 profile 的恢复和停机同步；
+- [ ] 使用真实 S3 兼容对象存储验证两个 profile 的恢复和停机同步。
 
 ### Phase 1 验收标准
 
 ```sh
-sh -n entrypoint.sh tests/entrypoint_test.sh tests/config_test.sh tests/container_smoke_test.sh
+sh -n entrypoint.sh tests/entrypoint_test.sh tests/config_test.sh tests/container_smoke_test.sh tests/container_replication_test.sh
 sh tests/entrypoint_test.sh
 sh tests/config_test.sh
-shellcheck entrypoint.sh tests/entrypoint_test.sh tests/config_test.sh tests/container_smoke_test.sh
+shellcheck entrypoint.sh tests/entrypoint_test.sh tests/config_test.sh tests/container_smoke_test.sh tests/container_replication_test.sh
 docker buildx build --platform linux/amd64 --file ./Dockerfile --tag 9router-go-litestream:ci --load .
 docker buildx build --platform linux/amd64 --file ./Dockerfile.9router --tag 9router-litestream:ci --load .
 ```

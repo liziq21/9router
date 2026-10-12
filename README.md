@@ -13,7 +13,8 @@
 
 - [`docs/PROJECT.md`](docs/PROJECT.md)：项目定位、边界和设计原则；
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)：入口流程、变量优先级和数据路径；
-- [`docs/ROADMAP.md`](docs/ROADMAP.md)：阶段目标与验收标准。
+- [`docs/ROADMAP.md`](docs/ROADMAP.md)：阶段目标与验收标准；
+- [`docs/PHASE2_PROMPT.md`](docs/PHASE2_PROMPT.md)：下一阶段 generic wrapper 会话的可复制提示词。
 
 ## 为什么支持两个 9Router
 
@@ -154,10 +155,10 @@ volumes:
 本地 Shell 验证：
 
 ```sh
-sh -n entrypoint.sh tests/entrypoint_test.sh tests/config_test.sh tests/container_smoke_test.sh
+sh -n entrypoint.sh tests/entrypoint_test.sh tests/config_test.sh tests/container_smoke_test.sh tests/container_replication_test.sh
 sh tests/entrypoint_test.sh
 sh tests/config_test.sh
-shellcheck entrypoint.sh tests/entrypoint_test.sh tests/config_test.sh tests/container_smoke_test.sh
+shellcheck entrypoint.sh tests/entrypoint_test.sh tests/config_test.sh tests/container_smoke_test.sh tests/container_replication_test.sh
 ```
 
 镜像验证：
@@ -167,6 +168,8 @@ docker buildx build --platform linux/amd64 --file ./Dockerfile --tag 9router-go-
 docker buildx build --platform linux/amd64 --file ./Dockerfile.9router --tag 9router-litestream:ci --load .
 sh tests/container_smoke_test.sh 9router-go-litestream:ci 20130
 sh tests/container_smoke_test.sh 9router-litestream:ci 20128 /api/health
+sh tests/container_replication_test.sh 9router-go-litestream:ci 20130 /health
+sh tests/container_replication_test.sh 9router-litestream:ci 20128 /api/health
 ```
 
 完整的 CI 还会执行 Alpine 容器中的入口测试、两个构建镜像的健康端点冒烟测试（Go profile 使用 `/health`，原版 profile 使用 `/api/health`）和 amd64/arm64 构建。

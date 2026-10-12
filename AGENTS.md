@@ -20,9 +20,11 @@
 - `tests/entrypoint_test.sh`：不依赖真实镜像和对象存储的入口行为测试。
 - `tests/config_test.sh`：检查两个 profile、应用路径和 Litestream 配置的一致性。
 - `tests/container_smoke_test.sh`：启动已构建的 profile 并检查 `/health`，不连接对象存储。
+- `tests/container_replication_test.sh`：使用隔离的 Litestream file replica 验证停机同步、删除本地数据库后的恢复和 marker 持久化。
 - `docs/PROJECT.md`：项目定位、支持范围和设计边界。
 - `docs/ARCHITECTURE.md`：构建层次、入口流程、变量优先级和权限模型。
 - `docs/ROADMAP.md`：分阶段演进路线和验收标准。
+- `docs/PHASE2_PROMPT.md`：下一阶段 generic wrapper 会话的可复制任务提示词。
 - `.github/workflows/docker-publish.yml`：Shell 语法检查、ShellCheck、入口测试、双 profile 构建和 GHCR 发布。
 - `README.md`：用户配置、运行、恢复和验证说明。
 
@@ -45,7 +47,7 @@
 提交前至少运行：
 
 ```sh
-sh -n entrypoint.sh tests/entrypoint_test.sh tests/config_test.sh tests/container_smoke_test.sh
+sh -n entrypoint.sh tests/entrypoint_test.sh tests/config_test.sh tests/container_smoke_test.sh tests/container_replication_test.sh
 sh tests/entrypoint_test.sh
 sh tests/config_test.sh
 ```
@@ -53,7 +55,7 @@ sh tests/config_test.sh
 如果本机安装了 ShellCheck，再运行：
 
 ```sh
-shellcheck entrypoint.sh tests/entrypoint_test.sh tests/config_test.sh tests/container_smoke_test.sh
+shellcheck entrypoint.sh tests/entrypoint_test.sh tests/config_test.sh tests/container_smoke_test.sh tests/container_replication_test.sh
 ```
 
 验证两个镜像构建时使用：
@@ -63,6 +65,8 @@ docker buildx build --platform linux/amd64 --file ./Dockerfile --tag 9router-go-
 docker buildx build --platform linux/amd64 --file ./Dockerfile.9router --tag 9router-litestream:ci --load .
 sh tests/container_smoke_test.sh 9router-go-litestream:ci 20130
 sh tests/container_smoke_test.sh 9router-litestream:ci 20128 /api/health
+sh tests/container_replication_test.sh 9router-go-litestream:ci 20130 /health
+sh tests/container_replication_test.sh 9router-litestream:ci 20128 /api/health
 ```
 
 CI 还会在 Alpine 容器中运行入口测试，并在合并或发布流程中执行两个 profile 的多架构构建。涉及 Dockerfile、入口脚本或 Litestream 配置的改动，应尽可能完成对应的 Docker 构建验证。

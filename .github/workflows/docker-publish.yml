@@ -55,6 +55,12 @@ jobs:
       - name: Smoke test 9router container
         run: sh tests/container_smoke_test.sh 9router-litestream:ci 20128 /api/health
 
+      - name: Test 9router-go replication and restore
+        run: sh tests/container_replication_test.sh 9router-go-litestream:ci 20130 /health
+
+      - name: Test 9router replication and restore
+        run: sh tests/container_replication_test.sh 9router-litestream:ci 20128 /api/health
+
   build-and-push:
     needs: validate
     if: github.event_name != 'pull_request'
