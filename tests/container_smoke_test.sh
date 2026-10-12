@@ -3,6 +3,7 @@ set -eu
 
 IMAGE=${1:?usage: container_smoke_test.sh IMAGE PORT}
 PORT=${2:?usage: container_smoke_test.sh IMAGE PORT}
+HEALTH_PATH=${3:-/health}
 NAME="litestream-smoke-${PORT}-$$"
 
 trap 'docker rm -f "$NAME" >/dev/null 2>&1 || true' EXIT HUP INT TERM
@@ -15,8 +16,8 @@ docker run -d \
 
 ATTEMPTS=0
 while [ "$ATTEMPTS" -lt 30 ]; do
-    if curl --fail --silent --show-error "http://127.0.0.1:${PORT}/health" >/dev/null 2>&1; then
-        echo "container smoke test: PASS ($IMAGE:$PORT)"
+    if curl --fail --silent --show-error "http://127.0.0.1:${PORT}${HEALTH_PATH}" >/dev/null 2>&1; then
+        echo "container smoke test: PASS ($IMAGE:$PORT$HEALTH_PATH)"
         exit 0
     fi
     ATTEMPTS=$((ATTEMPTS + 1))

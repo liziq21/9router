@@ -11,7 +11,7 @@
 - [x] 增加 `Dockerfile.9router`；
 - [x] 统一两个 profile 的 `/data/db/data.sqlite` 路径；
 - [x] 在 CI 中配置两个 amd64 镜像构建验证；
-- [x] 在 CI 中配置两个构建镜像的 `/health` 冒烟测试；
+- [x] 在 CI 中配置两个构建镜像的健康端点冒烟测试；
 - [ ] 通过 CI 实际完成两个 amd64 镜像构建和冒烟测试；
 - [ ] 在 CI 中发布两个多架构镜像；
 - [ ] 用真实测试卷验证两个 profile 的恢复和停机同步。

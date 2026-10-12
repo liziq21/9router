@@ -62,7 +62,7 @@ shellcheck entrypoint.sh tests/entrypoint_test.sh tests/config_test.sh tests/con
 docker buildx build --platform linux/amd64 --file ./Dockerfile --tag 9router-go-litestream:ci --load .
 docker buildx build --platform linux/amd64 --file ./Dockerfile.9router --tag 9router-litestream:ci --load .
 sh tests/container_smoke_test.sh 9router-go-litestream:ci 20130
-sh tests/container_smoke_test.sh 9router-litestream:ci 20128
+sh tests/container_smoke_test.sh 9router-litestream:ci 20128 /api/health
 ```
 
 CI 还会在 Alpine 容器中运行入口测试，并在合并或发布流程中执行两个 profile 的多架构构建。涉及 Dockerfile、入口脚本或 Litestream 配置的改动，应尽可能完成对应的 Docker 构建验证。

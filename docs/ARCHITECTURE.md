@@ -15,7 +15,7 @@ docs/
 tests/
 ├── entrypoint_test.sh     # 入口行为测试
 ├── config_test.sh          # Dockerfile/配置一致性测试
-└── container_smoke_test.sh # 已构建镜像的 /health 冒烟测试
+└── container_smoke_test.sh # 已构建镜像的健康端点冒烟测试
 ```
 
 ## 构建层次

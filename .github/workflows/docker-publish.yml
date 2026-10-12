@@ -53,7 +53,7 @@ jobs:
         run: sh tests/container_smoke_test.sh 9router-go-litestream:ci 20130
 
       - name: Smoke test 9router container
-        run: sh tests/container_smoke_test.sh 9router-litestream:ci 20128
+        run: sh tests/container_smoke_test.sh 9router-litestream:ci 20128 /api/health
 
   build-and-push:
     needs: validate
