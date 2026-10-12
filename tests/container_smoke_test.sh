@@ -5,12 +5,7 @@ IMAGE=${1:?usage: container_smoke_test.sh IMAGE PORT}
 PORT=${2:?usage: container_smoke_test.sh IMAGE PORT}
 NAME="litestream-smoke-${PORT}-$$"
 
-# The function is invoked indirectly by trap.
-# shellcheck disable=SC2329
-cleanup() {
-    docker rm -f "$NAME" >/dev/null 2>&1 || true
-}
-trap cleanup EXIT HUP INT TERM
+trap 'docker rm -f "$NAME" >/dev/null 2>&1 || true' EXIT HUP INT TERM
 
 docker run -d \
     --name "$NAME" \
