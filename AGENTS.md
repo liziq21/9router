@@ -22,7 +22,7 @@
 - `tests/entrypoint_test.sh`：不依赖真实镜像和对象存储的入口行为测试。
 - `tests/config_test.sh`：检查两个 profile、应用路径和 Litestream 配置的一致性。
 - `tests/container_smoke_test.sh`：启动已构建的 profile 并检查 `/health`，不连接对象存储。
-- `tests/container_replication_test.sh`：使用隔离的 Litestream file replica 验证停机同步、删除本地数据库后的恢复和 marker 持久化。
+- `tests/container_replication_test.sh`：默认使用隔离的 Litestream file replica 验证停机同步、删除本地数据库后的恢复和 marker 持久化；设置测试环境变量后也可验证真实 S3 replica。
 - `tests/generic_container_test.sh`：验证 generic 示例的显式路径要求、健康检查、权限和恢复。
 - `docs/PROJECT.md`：项目定位、支持范围和设计边界。
 - `docs/ARCHITECTURE.md`：构建层次、入口流程、变量优先级和权限模型。
@@ -76,7 +76,7 @@ docker buildx build --platform linux/amd64 --file ./Dockerfile.generic --tag gen
 sh tests/generic_container_test.sh generic-sqlite-litestream:ci 8080
 ```
 
-CI 还会在 Alpine 容器中运行入口测试，并在合并或发布流程中执行两个 profile 的多架构构建。涉及 Dockerfile、入口脚本或 Litestream 配置的改动，应尽可能完成对应的 Docker 构建验证。
+CI 还会在 Alpine 容器中运行入口测试，并在合并或发布流程中执行两个 profile 的多架构构建。手动触发 workflow 并绑定 `s3-test` Environment 时，会使用加密 Secrets 对两个 profile 执行真实 S3 停机同步和恢复测试。涉及 Dockerfile、入口脚本或 Litestream 配置的改动，应尽可能完成对应的 Docker 构建验证。
 
 ## 提交前检查
 

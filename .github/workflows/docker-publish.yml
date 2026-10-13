@@ -67,9 +67,46 @@ jobs:
       - name: Test generic SQLite wrapper
         run: sh tests/generic_container_test.sh generic-sqlite-litestream:ci 8080
 
+  s3-replication-test:
+    name: Validate real S3 replication and restore
+    needs: validate
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    environment:
+      name: s3-test
+    permissions:
+      contents: read
+    env:
+      REPLICA_URL: ${{ secrets.CI_REPLICA_URL }}
+      LITESTREAM_ACCESS_KEY_ID: ${{ secrets.CI_LITESTREAM_ACCESS_KEY_ID }}
+      LITESTREAM_SECRET_ACCESS_KEY: ${{ secrets.CI_LITESTREAM_SECRET_ACCESS_KEY }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Build 9router-go image for S3 validation
+        run: docker buildx build --platform linux/amd64 --file ./Dockerfile --tag 9router-go-litestream:s3-ci --load .
+
+      - name: Build 9router image for S3 validation
+        run: docker buildx build --platform linux/amd64 --file ./Dockerfile.9router --tag 9router-litestream:s3-ci --load .
+
+      - name: Test 9router-go against real S3
+        env:
+          LITESTREAM_TEST_REPLICA_PREFIX: ci/${{ github.run_id }}/9router-go
+        run: sh tests/container_replication_test.sh 9router-go-litestream:s3-ci 20130 /health
+
+      - name: Test 9router against real S3
+        env:
+          LITESTREAM_TEST_REPLICA_PREFIX: ci/${{ github.run_id }}/9router
+        run: sh tests/container_replication_test.sh 9router-litestream:s3-ci 20128 /api/health
+
   build-and-push:
     needs: validate
-    if: github.event_name != 'pull_request'
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     permissions:
       contents: read
