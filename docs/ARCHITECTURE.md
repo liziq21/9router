@@ -17,7 +17,7 @@ tests/
 ├── entrypoint_test.sh     # 入口行为测试
 ├── config_test.sh          # Dockerfile/配置一致性测试
 ├── container_smoke_test.sh  # 已构建镜像的健康端点冒烟测试
-├── container_replication_test.sh # 9Router file replica 恢复/停机同步测试
+├── container_replication_test.sh # 9Router file/S3 replica 恢复/停机同步测试
 └── generic_container_test.sh # generic 示例的路径契约和恢复测试
 ```
 

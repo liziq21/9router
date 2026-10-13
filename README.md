@@ -205,7 +205,7 @@ docker buildx build --platform linux/amd64 --file ./Dockerfile.generic --tag gen
 sh tests/generic_container_test.sh generic-sqlite-litestream:ci 8080
 ```
 
-完整的 CI 还会执行 Alpine 容器中的入口测试、两个构建镜像的健康端点冒烟测试（Go profile 使用 `/health`，原版 profile 使用 `/api/health`）、两个 9Router profile 的 file replica 恢复测试、generic 示例的路径拒绝和恢复测试，以及 amd64/arm64 构建发布。真实 S3 兼容对象存储验收通过手动触发同一 workflow 执行，不参与普通 Pull Request，也不会因手动验收发布镜像。
+完整的 CI 还会执行 Alpine 容器中的入口测试、两个构建镜像的健康端点冒烟测试（Go profile 使用 `/health`，原版 profile 使用 `/api/health`）、两个 9Router profile 的 file replica 恢复测试、generic 示例的路径拒绝和恢复测试，以及 amd64/arm64 构建发布。真实 S3 兼容对象存储验收已配置为手动触发同一 workflow 执行，不参与普通 Pull Request，也不会因手动验收发布镜像。
 
 真实 S3 验收需要在 GitHub `s3-test` Environment 中配置以下加密 Secrets：
 

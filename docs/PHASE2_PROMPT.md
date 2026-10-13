@@ -33,7 +33,7 @@
 - 最新通过的 CI 运行记录见仓库 GitHub Actions；
 - Dependabot 的 metadata-action v6 PR 已被主分支直接包含并自动关闭；
 - CI 已使用隔离的 Litestream file replica 验证两个 profile 的停机同步、删除本地数据库后的恢复和 marker 持久化；
-- 当前尚未使用真实 S3 兼容对象存储完成恢复/停机同步测试；不要把这项说成已经通过。
+- 手动 GitHub Actions 已使用真实 S3 兼容对象存储验证两个 profile 的停机同步、删除本地数据库后的恢复和 marker 持久化；后续修改仍需重新执行真实对象存储验收。
 - Phase 2 已开始：共享入口现在要求 generic 复制显式提供 `LITESTREAM_DB_PATH`，不再静默回退到猜测路径；
 - 已增加 `Dockerfile.generic`、`examples/generic-sqlite/` 和 `tests/generic_container_test.sh`，用于验证 generic 示例的健康检查、权限、路径拒绝和 file replica 恢复；
 - generic 示例目前只作为仓库内可验证 profile，不单独发布 `litestream-wrapper` 镜像；独立发布仍是后续稳定性和版本化工作。
