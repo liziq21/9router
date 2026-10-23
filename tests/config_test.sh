@@ -54,10 +54,15 @@ if grep -Fq 'LITESTREAM_DB_PATH=' "$GENERIC_DOCKERFILE"; then
     exit 1
 fi
 
-# Remote retention is delegated to the object storage lifecycle policy, and
-# the L0 listing check is throttled to reduce requests against capped providers.
+# Litestream actively deletes expired L0 files and keeps only the most
+# recent snapshot (snapshot interval/retention both 1h), bounding remote
+# object count; the L0 listing check is throttled to reduce requests
+# against capped providers.
+assert_contains 'snapshot:' "$LITESTREAM_CONFIG"
+assert_contains '  interval: 1h' "$LITESTREAM_CONFIG"
+assert_contains '  retention: 1h' "$LITESTREAM_CONFIG"
 assert_contains 'retention:' "$LITESTREAM_CONFIG"
-assert_contains '  enabled: false' "$LITESTREAM_CONFIG"
+assert_contains '  enabled: true' "$LITESTREAM_CONFIG"
 assert_contains 'l0-retention-check-interval: 1h' "$LITESTREAM_CONFIG"
 
 echo 'configuration tests: PASS'
