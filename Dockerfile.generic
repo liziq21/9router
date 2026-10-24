@@ -10,7 +10,7 @@ FROM litestream/litestream:0.5.17@sha256:4b02b9859a6b6b4087d8b8944e15f7e984bd795
 # contract values. LITESTREAM_DB_PATH is intentionally not set here: users
 # must provide it whenever replication is enabled.
 # ==========================================
-FROM python:3.12-alpine@sha256:1b668429b3511ab407d8e00648891631b0b1a4d7e15e3ca70f38ab5b91ad4ab4
+FROM python:3.15-alpine@sha256:2699b90f4d562a22e2dd076c82f964032f64814204bff36d271a54ba4cc2c7e2
 USER root
 
 ENV PYTHONUNBUFFERED=1 \
