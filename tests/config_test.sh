@@ -44,7 +44,7 @@ assert_contains 'FROM decolua/9router:0.5.95@sha256:4316fefb95ea642d57db885d906b
 
 # The generic example has an explicit app contract but requires the operator to
 # provide LITESTREAM_DB_PATH when replication is enabled.
-assert_contains 'FROM python:3.12-alpine@sha256:1b668429b3511ab407d8e00648891631b0b1a4d7e15e3ca70f38ab5b91ad4ab4' "$GENERIC_DOCKERFILE"
+assert_contains 'FROM python:3.15-alpine@sha256:2699b90f4d562a22e2dd076c82f964032f64814204bff36d271a54ba4cc2c7e2' "$GENERIC_DOCKERFILE"
 assert_contains "    DATA_DIR=/var/lib/generic-sqlite \\" "$GENERIC_DOCKERFILE"
 assert_contains "    APP_USER=sqlite \\" "$GENERIC_DOCKERFILE"
 assert_contains 'EXPOSE 8080' "$GENERIC_DOCKERFILE"
