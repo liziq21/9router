@@ -9,7 +9,7 @@ FROM litestream/litestream:0.5.17@sha256:4b02b9859a6b6b4087d8b8944e15f7e984bd795
 # 9Router v0.5.95, pinned to its multi-architecture manifest.
 # Keep the tag and manifest digest in sync when upgrading.
 # ==========================================
-FROM decolua/9router:0.5.95@sha256:4316fefb95ea642d57db885d906b1227b1768b15ac5def314621fd781da7b3f1
+FROM decolua/9router:0.5.104@sha256:5fc7020f3cf1ca6831bffe80314ecab9dde915d27ee3c479a4bb66f45dabbc27
 USER root
 
 # Use the same in-container layout as the 9router-go profile. The upstream
