@@ -6,20 +6,12 @@
 shutdown-sync-timeout: 30s
 shutdown-sync-interval: 500ms
 
-# 开启 Litestream 主动删除，远端只保留一份最新备份：
-# - L0（细粒度增量）压缩进 L1 后保留 5m（默认值）即删除；
-# - snapshot.retention 与 interval 同为 1h：只保留最近一次全量快照，
-#   配合 restore-if-db-not-exists，恢复点粒度 = 1h（最近 1h 内的事务
-#   由尚未过期的 L0/L1 增量文件覆盖）。
-# - retention.enabled=true 时 Litestream 需要 DeleteObject 权限，
-#   对应存储凭据必须开通该权限（此前 enabled=false 是为了免权限、
-#   代价是对象无限累积）。
 snapshot:
   interval: 1h
   retention: 1h
 
 retention:
-  enabled: true
+  enabled: false
 
 # 默认每 15 秒会执行一次 ListObjectsV2。降低频率以减少有交易上限的
 # S3 兼容存储的请求量；恢复/提高存储端额度仍是解除 403 的必要条件。
