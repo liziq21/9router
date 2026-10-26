@@ -6,10 +6,6 @@
 shutdown-sync-timeout: 30s
 shutdown-sync-interval: 500ms
 
-snapshot:
-  interval: 1h
-  retention: 1h
-
 retention:
   enabled: false
 
