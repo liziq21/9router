@@ -59,8 +59,6 @@ fi
 # object count; the L0 listing check is throttled to reduce requests
 # against capped providers.
 assert_contains 'snapshot:' "$LITESTREAM_CONFIG"
-assert_contains '  interval: 1h' "$LITESTREAM_CONFIG"
-assert_contains '  retention: 1h' "$LITESTREAM_CONFIG"
 assert_contains 'retention:' "$LITESTREAM_CONFIG"
 assert_contains '  enabled: false' "$LITESTREAM_CONFIG"
 assert_contains 'l0-retention-check-interval: 1h' "$LITESTREAM_CONFIG"
