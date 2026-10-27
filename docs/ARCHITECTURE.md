@@ -132,6 +132,8 @@ LITESTREAM_EXPECTED_DB_PATH=/data/db/data.sqlite
 4. 启动应用并持续同步 WAL；
 5. 收到停止信号时执行 shutdown sync。
 
+配置将完整快照间隔设为 1h，缩短新实例恢复时需要重放的 L0/L1 增量窗口。
+首次恢复仍会先于应用启动，因此部署平台的启动宽限时间必须覆盖远端恢复耗时。
 `retention.enabled: false` 将远端旧 LTX 文件的删除交给对象存储生命周期规则。部署时应为对应副本前缀设置生命周期策略。
 
 ## 参数边界
